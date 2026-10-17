@@ -6,7 +6,7 @@ const html=readFileSync(new URL('./Madar.html',import.meta.url),'utf8');
 const module=html.match(/<script id="harvestModule">([\s\S]*?)<\/script>/)?.[1];
 assert.ok(module,'Story module is included in the shipped app');
 const array=module.slice(module.indexOf('const MADAR_STORIES=['),module.indexOf('];',module.indexOf('const MADAR_STORIES=['))+2);
-const selector=module.match(/function harvestStoryFor\([^\n]+/)?.[0];
+const selector=module.match(/function harvestStoryPool\([^\n]+/)?.[0]+'\n'+module.match(/function harvestStoryFor\([^\n]+/)?.[0]+'\n'+module.match(/function harvestStoryGcd\([^\n]+/)?.[0];
 assert.ok(selector);
 const context={};
 runInNewContext(array+'\n'+selector+'\nthis.stories=MADAR_STORIES;this.storyFor=harvestStoryFor;',context);
@@ -20,6 +20,10 @@ for(const story of stories){
   assert.equal(new URL(story.url).protocol,'https:');
   assert.ok(story.kind==='world'||story.url.startsWith('https://quran.com/'));
 }
+const libraryContext={MADAR_STORIES:stories,D:{settings:{storyLibrary:{favorites:['ayyub','ayyub','unknown'],read:['johnson','unknown']}}}};
+runInNewContext(module.match(/function harvestStoryBook\([^\n]+/)?.[0]+'\nthis.book=harvestStoryBook;',libraryContext);
+assert.equal(libraryContext.book().favorites.join(','),'ayyub','Old or invalid IDs are ignored without changing the user’s raw backup');
+assert.equal(libraryContext.book().read.join(','),'johnson');
 const start=Date.UTC(2026,9,18)/86400000;
 for(const count of [1,2,3]){
   const scheduled=[];
@@ -30,6 +34,12 @@ for(const count of [1,2,3]){
     scheduled.push(...daily);
   }
   assert.equal(new Set(scheduled.slice(0,stories.length)).size,Math.min(stories.length,scheduled.length),'Complete story rotation before repeating');
+}
+for(const kind of ['faith','world']){
+  const date='2026-10-18',pool=stories.filter(x=>(x.kind||'faith')===kind);
+  const selected=Array.from({length:pool.length},(_,d)=>context.storyFor(new Date(Date.parse(date+'T00:00:00Z')+d*86400000).toISOString().slice(0,10),0,1,kind));
+  assert.equal(new Set(selected.map(x=>x.id)).size,pool.length,'Each selected genre rotates before repeating');
+  assert.ok(selected.every(x=>(x.kind||'faith')===kind));
 }
 assert.ok(module.includes('inspireCount')&&module.includes("'story='+story.id"),'Frequency and deep link are included');
 const wrapper=module.slice(module.indexOf('const harvestBaseSmartItems=smartItems;'),module.indexOf("window.addEventListener('hashchange'"));
@@ -53,6 +63,11 @@ for(const count of [1,2,3]){
   assert.ok(daily.every(x=>x.category==='habit'&&x.url_hash.startsWith('story=')));
   assert.ok(items.length<=450);
 }
+D.settings.harvestNotify.storyKind='world';
+assert.ok(notifications.smartItems().filter(x=>x.key.startsWith('harvest:story-')).every(x=>stories.find(s=>s.id===x.url_hash.slice(6))?.kind==='world'));
+D.settings.harvestNotify.pauseUntil=tomorrow;
+assert.equal(notifications.smartItems().filter(x=>x.key.startsWith('harvest:story-')&&x.key.endsWith(':'+tomorrow)).length,0,'Pause skips stories for its inclusive end date');
+D.settings.harvestNotify.pauseUntil='';
 D.settings.harvestNotify.inspire=false;
 assert.equal(notifications.smartItems().filter(x=>x.key.startsWith('harvest:story-')).length,0);
 D.settings.harvestNotify.inspire=true;prefs.enabled=false;
