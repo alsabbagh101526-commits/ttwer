@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {runInNewContext} from 'node:vm';
+const html=readFileSync(new URL('./Madar.html',import.meta.url),'utf8');
+const line=name=>{const found=html.match(new RegExp('function '+name+'\\([^\\n]+'));assert.ok(found,name);return found[0]};
+const array=html.slice(html.indexOf('const COMFORT_LINES=['),html.indexOf('];',html.indexOf('const COMFORT_LINES=['))+2);
+const source=array+'\n'+['calmHash','calmDailyPlan','smartTime','smartQuiet','smartLocalDay','smartNext'].map(line).join('\n')+'\n'+html.slice(html.indexOf('function smartItems(){'),html.indexOf('\nlet smartBusy=',html.indexOf('function smartItems(){')))+'\nthis.plan=calmDailyPlan;this.items=smartItems;';
+const tomorrow=new Date(Date.now()+86400000).toISOString().slice(0,10);
+const prefs={enabled:true,categories:{calm:true},days:[0,1,2,3,4,5,6],calmCount:3,calmSeed:'repeatable-device-seed',lead:10,quietStart:'22:00',quietEnd:'07:00'};
+const context={Date,Math,String,Number,Array,Object,COMFORT_LINES:undefined,D:{tasks:[],exercises:[],books:[],debts:[]},F:{events:[]},pushPrefs:()=>prefs,today:()=>tomorrow,addDays:(date,n)=>new Date(Date.parse(date+'T12:00:00Z')+n*86400000).toISOString().slice(0,10)};
+runInNewContext(source,context);
+for(const count of [0,1,2,3,4,5,6]){
+ prefs.calmCount=count;
+ const planned=context.plan(tomorrow,prefs);
+ assert.equal(planned.length,count);
+ assert.equal(new Set(planned.map(x=>x.time)).size,count);
+ assert.equal(new Set(planned.map(x=>x.quote[0])).size,count);
+ assert.ok(planned.every(x=>x.time>='08:00'&&x.time<'22:00'));
+ assert.deepEqual(planned.map(x=>x.time).join(','),context.plan(tomorrow,prefs).map(x=>x.time).join(','),'Resync keeps the same times');
+ const outgoing=context.items().filter(x=>x.category==='calm'&&x.key.startsWith('calm:'+tomorrow+':'));
+ assert.equal(outgoing.length,count,'One unique scheduled push per chosen daily slot');
+ assert.equal(new Set(outgoing.map(x=>x.key)).size,count);
+ assert.ok(outgoing.every(x=>x.url_hash.startsWith('calm=1&story=')));
+}
+prefs.calmCount=3;
+const schedules=Array.from({length:6},(_,i)=>context.plan(context.addDays(tomorrow,i),prefs).map(x=>x.time).join(','));
+assert.ok(new Set(schedules).size>1,'Delivery times change between days');
+prefs.quietStart='09:00';prefs.quietEnd='20:00';
+assert.ok(context.plan(tomorrow,prefs).every(x=>x.time<'09:00'||x.time>='20:00'),'Quiet hours are respected');
+prefs.enabled=false;
+assert.equal(context.items().length,0);
+console.log('Random comfort notification count, stable resync, quiet hours and links passed');
