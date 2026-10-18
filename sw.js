@@ -1,7 +1,7 @@
 'use strict';
 const SCOPE=new URL(self.registration.scope);
 const CACHE_PREFIX='madar-shell:'+encodeURIComponent(SCOPE.pathname)+':';
-const CACHE=CACHE_PREFIX+'madar-ready-v24';
+const CACHE=CACHE_PREFIX+'madar-ready-v25';
 const CORE=['./','./manifest.webmanifest','./icon.svg'];
 const ENTRY_PATHS=new Set(['./','./index.html','./Madar.html'].map(path=>new URL(path,SCOPE).pathname));
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)).then(()=>self.skipWaiting())));
@@ -11,7 +11,7 @@ async function networkWithCache(event,key,isHTML){
  try{
   // A release query forces a fresh CDN variant when GitHub Pages still serves
   // a previously cached HTML entry point after deployment.
-  const request=isHTML?(()=>{const u=new URL(event.request.url);u.searchParams.set('madar_release','v24');return u.href})():event.request;
+  const request=isHTML?(()=>{const u=new URL(event.request.url);u.searchParams.set('madar_release','v25');return u.href})():event.request;
   const response=await fetch(request,isHTML?{cache:'no-store'}:undefined);
   if(response.ok&&(!isHTML||(response.headers.get('content-type')||'').includes('text/html'))){
    // Clone before handing the response to the browser. Cache failures must not break navigation.
