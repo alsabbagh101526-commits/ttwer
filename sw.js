@@ -1,17 +1,24 @@
 'use strict';
 const SCOPE=new URL(self.registration.scope);
 const CACHE_PREFIX='madar-shell:'+encodeURIComponent(SCOPE.pathname)+':';
-const CACHE=CACHE_PREFIX+'madar-ready-v25';
-const CORE=['./','./manifest.webmanifest','./icon.svg'];
+const CACHE=CACHE_PREFIX+'madar-ready-v26';
+const CORE=['./manifest.webmanifest','./icon.svg'];
 const ENTRY_PATHS=new Set(['./','./index.html','./Madar.html'].map(path=>new URL(path,SCOPE).pathname));
-self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)).then(()=>self.skipWaiting())));
+function freshShellURL(url){const u=new URL(url);u.searchParams.set('madar_release',String(Date.now()));return u.href}
+self.addEventListener('install',event=>event.waitUntil((async()=>{
+ const cache=await caches.open(CACHE);
+ await cache.addAll(CORE);
+ const response=await fetch(freshShellURL(SCOPE.href),{cache:'no-store'});
+ if(!response.ok||!(response.headers.get('content-type')||'').includes('text/html'))throw Error('Application shell unavailable');
+ await cache.put(SCOPE.href,response);
+ await self.skipWaiting();
+})()));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith(CACHE_PREFIX)&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 function offlineResponse(){return new Response('اتصل بالإنترنت لفتح مدار أول مرة وحفظ نسخته على هذا الجهاز.',{status:503,headers:{'Content-Type':'text/plain;charset=utf-8'}})}
 async function networkWithCache(event,key,isHTML){
  try{
-  // A release query forces a fresh CDN variant when GitHub Pages still serves
-  // a previously cached HTML entry point after deployment.
-  const request=isHTML?(()=>{const u=new URL(event.request.url);u.searchParams.set('madar_release','v25');return u.href})():event.request;
+  // Each navigation gets a fresh CDN variant; the last verified HTML is kept for offline use.
+  const request=isHTML?freshShellURL(event.request.url):event.request;
   const response=await fetch(request,isHTML?{cache:'no-store'}:undefined);
   if(response.ok&&(!isHTML||(response.headers.get('content-type')||'').includes('text/html'))){
    // Clone before handing the response to the browser. Cache failures must not break navigation.
@@ -30,7 +37,7 @@ self.addEventListener('fetch',event=>{
  if(event.request.mode==='navigate'&&ENTRY_PATHS.has(url.pathname)){
   event.respondWith(networkWithCache(event,SCOPE.href,true));return;
  }
- if(CORE.slice(1).some(asset=>new URL(asset,SCOPE).href===url.href))event.respondWith(networkWithCache(event,event.request,false));
+ if(CORE.some(asset=>new URL(asset,SCOPE).href===url.href))event.respondWith(networkWithCache(event,event.request,false));
 });
 self.addEventListener('push',event=>event.waitUntil((async()=>{
  let data={};try{data=event.data?.json()||{}}catch{}
