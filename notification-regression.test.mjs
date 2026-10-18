@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {runInNewContext} from 'node:vm';
+
+const html=readFileSync(new URL('./Madar.html',import.meta.url),'utf8');
+assert.equal(html,readFileSync(new URL('./index.html',import.meta.url),'utf8'));
+assert.ok(html.includes('if(subscription&&mismatched){await subscription.unsubscribe()'));
+assert.ok(!html.includes('if(subscription&&(previouslyEnabled||mismatched))'));
+const source=html.slice(html.indexOf('async function smartPushTest(){'),html.indexOf("document.addEventListener('click',e=>{let b=e.target.closest('button[data-act]');if(!b)return;switch(b.dataset.act){case'smart-push-edit'"));
+const messages=[];
+let result={accepted:0,failures:[{error:'transport'}]};
+const context={F:{session:{user:{id:'test'}},pushEnabled:true},familyRPC:async()=>result,toast:(message,error)=>messages.push({message,error}),num:String};
+runInNewContext(source+'\nthis.testPush=smartPushTest;',context);
+await context.testPush();
+assert.match(messages.at(-1).message,/خادم مدار/);
+assert.equal(messages.at(-1).error,true);
+result={accepted:1,failures:[]};
+await context.testPush();
+assert.match(messages.at(-1).message,/قبلت خدمة الجهاز/);
+result={accepted:0,failures:[{status:410}]};
+await context.testPush();
+assert.match(messages.at(-1).message,/اشتراك الإشعار/);
+context.F.pushEnabled=false;
+await assert.rejects(context.testPush(),/فعّل إشعارات هذا الجهاز/);
+console.log('Notification subscription and test feedback regression passed');
