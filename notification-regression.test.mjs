@@ -39,4 +39,16 @@ assert.deepEqual(Array.from(reminderContext.testItems(),x=>x.key),['task:monthly
 assert.equal(reminderContext.testMonthly({date:'2027-01-31',monthDay:31},'2027-02-28'),true);
 assert.equal(reminderContext.testMonthly({date:'2028-01-31',monthDay:31},'2028-02-29'),true);
 assert.equal(reminderContext.testMonthly({date:'2026-01-31',monthDay:31},'2026-04-29'),false);
+const editSource=html.match(/^\s?function smartEdit\([^\n]+/m)?.[0];
+assert.ok(editSource);
+let editSubmit;
+const editContext={D:{settings:{}},PUSH_CATEGORIES:[['task','المهام']],days:['الأحد'],
+ pushPrefs:()=>({enabled:false,categories:{task:true},calmCount:1,lead:10,reading:'20:30',exercise:'17:30',worship:'05:30',habit:'21:00',quietStart:'22:00',quietEnd:'07:00',days:[0],calmSeed:'fixed'}),
+ openModal:(title,content,submit)=>{editSubmit=submit},field:()=>'',crypto:{randomUUID:()=> 'seed'},
+ setTimeout:()=>{throw Error('Server sync started before local save')}};
+runInNewContext(editSource+'\nthis.testEdit=smartEdit;',editContext);
+editContext.testEdit();
+await editSubmit({has:key=>key==='enabled'||key==='cat_task'||key==='day_0',get:key=>({lead:'10',calmCount:'2',reading:'20:30',exercise:'17:30',worship:'05:30',habit:'21:00',quietStart:'22:00',quietEnd:'07:00'})[key]});
+assert.equal(editContext.D.settings.smartPush.calmCount,2);
+assert.ok(html.includes('window.madarFamilyChange=function(){priorFamilyChange?.();clearTimeout(smartTimer)'));
 console.log('Notification subscription and test feedback regression passed');
