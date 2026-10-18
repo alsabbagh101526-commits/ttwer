@@ -25,4 +25,5 @@ assert.equal(JSON.parse(JSON.parse(saved.get('account-a.beforeImport')).raw).tas
 storage.setItem=()=>{throw Error('quota')};
 await assert.rejects(context.snapshot(),/لم تتغير بياناتك/,'Replacement is blocked without a recoverable snapshot');
 assert.match(html,/نسخة قبل الاستبدال/,'The snapshot is visible in the recovery list');
+assert.match(html,/btn\('استرجاع','vault-restore',String\(i\)\)/,'The first recovery row must keep data-id="0"');
 console.log('Pre-import/restore snapshot, account isolation and storage failure regression passed');
