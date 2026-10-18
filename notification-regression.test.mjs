@@ -22,4 +22,21 @@ await context.testPush();
 assert.match(messages.at(-1).message,/اشتراك الإشعار/);
 context.F.pushEnabled=false;
 await assert.rejects(context.testPush(),/فعّل إشعارات هذا الجهاز/);
+
+const monthly=html.match(/^ function smartMonthlyDue\([^\n]+/m)?.[0];
+const smartItems=html.slice(html.indexOf('function smartItems(){'),html.indexOf('let smartBusy=false'));
+assert.ok(monthly&&smartItems.includes('smartMonthlyDue(t,date)'));
+class FixedDate extends Date {static now(){return +new Date('2026-04-01T00:00:00Z')}}
+const addDays=(date,amount)=>new Date(Date.parse(date+'T12:00:00Z')+amount*86400000).toISOString().slice(0,10);
+const reminderContext={Date:FixedDate,Math,Number,encodeURIComponent,Map,
+ D:{tasks:[{id:'monthly-31',title:'مهمة ٣١',date:'2026-01-31',anchor:'2026-01-31',monthDay:31,repeat:'monthly'}],exercises:[],books:[],debts:[]},F:{events:[]},
+ pushPrefs:()=>({enabled:true,categories:{task:true},days:[0,1,2,3,4,5,6],lead:0}),
+ today:()=> '2026-04-01',addDays,smartLocalDay:date=>new Date(date+'T12:00:00Z').getUTCDay(),
+ smartNext:(date,time)=>new Date(date+'T'+time+':00Z'),smartQuiet:()=>false,
+ exerciseDays:()=>[],calmDailyPlan:()=>[],remaining:()=>0,repaymentSchedule:()=>null,nextSharedDate:()=>null};
+runInNewContext(monthly+'\n'+smartItems+'\nthis.testItems=smartItems;this.testMonthly=smartMonthlyDue;',reminderContext);
+assert.deepEqual(Array.from(reminderContext.testItems(),x=>x.key),['task:monthly-31:2026-04-30']);
+assert.equal(reminderContext.testMonthly({date:'2027-01-31',monthDay:31},'2027-02-28'),true);
+assert.equal(reminderContext.testMonthly({date:'2028-01-31',monthDay:31},'2028-02-29'),true);
+assert.equal(reminderContext.testMonthly({date:'2026-01-31',monthDay:31},'2026-04-29'),false);
 console.log('Notification subscription and test feedback regression passed');
