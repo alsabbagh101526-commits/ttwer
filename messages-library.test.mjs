@@ -8,7 +8,7 @@ const index=readFileSync(new URL('./index.html',import.meta.url),'utf8');
 const sw=readFileSync(new URL('./sw.js',import.meta.url),'utf8');
 assert.equal(index,html,'Both Pages entry points ship the same code');
 assert.ok(html.includes(source.trim()),'Library is embedded for offline use');
-assert.match(sw,/madar-ready-v26/);
+assert.match(sw,/madar-ready-v27/);
 assert.match(sw,/searchParams\.set\('madar_release',String\(Date\.now\(\)\)\)/);
 const encoded=JSON.parse(html.match(/const RUNTIME_ASSETS=(\{[^\n]+\});/)?.[1]||'{}')['sw.js'];
 assert.equal(Buffer.from(encoded,'base64').toString(),sw,'The built-in recovery ZIP contains the same service worker');

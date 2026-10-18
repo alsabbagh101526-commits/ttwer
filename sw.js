@@ -1,8 +1,8 @@
 'use strict';
 const SCOPE=new URL(self.registration.scope);
 const CACHE_PREFIX='madar-shell:'+encodeURIComponent(SCOPE.pathname)+':';
-const CACHE=CACHE_PREFIX+'madar-ready-v26';
-const CORE=['./manifest.webmanifest','./icon.svg'];
+const CACHE=CACHE_PREFIX+'madar-ready-v27';
+const CORE=['./manifest.webmanifest','./icon.svg?v=2'];
 const ENTRY_PATHS=new Set(['./','./index.html','./Madar.html'].map(path=>new URL(path,SCOPE).pathname));
 function freshShellURL(url){const u=new URL(url);u.searchParams.set('madar_release',String(Date.now()));return u.href}
 self.addEventListener('install',event=>event.waitUntil((async()=>{
