@@ -23,7 +23,7 @@ assert.equal((await context.verify(old)).verified,false,'Older JSON remains impo
 const importSource=html.match(/^async function readImport\([^\n]+/m)?.[0];
 assert.ok(importSource);
 const messages=[],modals=[];
-const importer={backupVerify:context.verify,validateData:v=>{if(v.schema!==1)throw Error('schema')},openModal:(...args)=>modals.push(args),toast:(...args)=>messages.push(args),num:String,esc:String,btn:()=>'',D:old,$:()=>({value:'selected'})};
+const importer={backupVerify:context.verify,validateData:v=>{if(v.schema!==1)throw Error('schema')},openModal:(...args)=>modals.push(args),toast:(...args)=>messages.push(args),num:String,esc:String,btn:()=>'',D:old,defaults:()=>({schema:1,settings:{}}),preserveBeforeReplace:async()=>{},$:()=>({value:'selected'})};
 runInNewContext('let pendingImport=null;'+importSource+'\nthis.importFile=readImport;this.getPending=()=>pendingImport;',importer);
 const file=data=>({size:JSON.stringify(data).length,name:'backup.json',text:async()=>JSON.stringify(data)});
 await importer.importFile(file(tampered));
@@ -36,4 +36,6 @@ assert.equal(importer.getPending().tasks[0].title,'مهمة خاصة');
 await importer.importFile(file(sealed));
 assert.equal(modals.length,2,'Verified backup is accepted');
 assert.equal(importer.getPending().madarBackupIntegrity,undefined,'Integrity metadata is not persisted');
+await modals[1][2]();
+assert.equal(importer.D.tasks[0].title,'مهمة خاصة','Validated import can still be committed');
 console.log('Backup integrity, corrupt rejection and legacy import compatibility passed');
