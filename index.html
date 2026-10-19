@@ -1021,12 +1021,14 @@ async function exportSharedSpace(){
  await familyRefresh(true);
  if(F.error)throw Error('تعذر تحديث المساحة؛ لم نصدر ملفًا قد يكون ناقصًا.');
  const readAll=async table=>{
-  const rows=[];
-  for(let offset=0;offset<=50000;offset+=500){
-   const page=await familyRequest('/rest/v1/'+table+'?select=*&limit=500&offset='+offset);
+  const rows=[],seen=new Set(),pageSize=table==='md_hearts'?200:500;
+  for(let offset=0;offset<=50000;offset+=pageSize){
+   const page=await familyRequest('/rest/v1/'+table+'?select=*&limit='+pageSize+'&offset='+offset);
    if(!Array.isArray(page))throw Error('تعذر قراءة سجلات '+table+'.');
+   if(page.length>pageSize)throw Error('أعادت الخدمة صفحة أكبر من المتوقع لسجلات '+table+'.');
+   for(const item of page)if(item?.id){if(seen.has(item.id))throw Error('كررت الخدمة سجلات '+table+'؛ لم ننزّل نسخة ناقصة.');seen.add(item.id)}
    rows.push(...page);
-   if(page.length<500)return rows;
+   if(page.length<pageSize)return rows;
   }
   throw Error('تجاوزت سجلات المساحة حد التصدير الآمن. لم ننزّل نسخة ناقصة.');
  };
