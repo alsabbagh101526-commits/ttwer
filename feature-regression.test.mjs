@@ -63,6 +63,31 @@ assert.equal(exerciseContext.D.exercises[1].libraryOnly,true);
 assert.equal(exerciseContext.D.sessions.length,0,'Saving a template is not recorded performance');
 exerciseContext.edit();
 assert.throws(()=>exerciseForm.submit({get:key=>values.get(key)||'',has:key=>key==='libraryOnly'}),/موجود في المكتبة/);
+exerciseContext.edit('new-time');
+values.set('durationRemainderSeconds','50');
+exerciseForm.submit({get:key=>values.get(key)||'',has:key=>key==='libraryOnly'});
+assert.equal(exerciseContext.D.exercises.length,2,'Editing must update the same template');
+assert.equal(exerciseContext.D.exercises[1].durationSeconds,50);
+
+for(const [kind,selectName,visibleClass,hiddenClass] of [
+ ['Exercise','exerciseType','exerciseTime','exerciseReps'],
+ ['Session','sessionExerciseType','sessionTime','sessionReps']
+]){
+ const source=html.match(new RegExp('^function sync'+kind+'Fields\\(\\)\\{[^\\n]+','m'))?.[0];
+ assert.ok(source);
+ const groups=[visibleClass,hiddenClass].map(name=>({name,hidden:false,inputs:[{disabled:false}],classList:{contains:className=>className===name},querySelectorAll(){return this.inputs}}));
+ let selected='time';
+ const form={elements:{namedItem:()=>({value:selected})},querySelectorAll:()=>groups};
+ const context={document:{querySelector:()=>form}};
+ runInNewContext(source+'\nthis.sync=sync'+kind+'Fields;',context);
+ context.sync();
+ assert.equal(groups[0].hidden,false);
+ assert.equal(groups[1].hidden,true);
+ assert.equal(groups[1].inputs[0].disabled,true,'Hidden repetitions must not block timed edit validation');
+ selected='reps';context.sync();
+ assert.equal(groups[0].inputs[0].disabled,true);
+ assert.equal(groups[1].inputs[0].disabled,false);
+}
 
 assert.match(html,/function editExercise\(id\)\{[\s\S]*?exerciseType:selected/);
 assert.match(html,/if\(!old\)queueEncouragement\('workout'\)/);
