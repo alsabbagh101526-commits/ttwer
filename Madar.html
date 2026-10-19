@@ -1020,11 +1020,22 @@ async function exportSharedSpace(){
  if(!F.session||!F.familyId)throw Error('ادخل إلى مساحتنا وحدّث بياناتها أولًا.');
  await familyRefresh(true);
  if(F.error)throw Error('تعذر تحديث المساحة؛ لم نصدر ملفًا قد يكون ناقصًا.');
+ const readAll=async table=>{
+  const rows=[];
+  for(let offset=0;offset<=50000;offset+=500){
+   const page=await familyRequest('/rest/v1/'+table+'?select=*&limit=500&offset='+offset);
+   if(!Array.isArray(page))throw Error('تعذر قراءة سجلات '+table+'.');
+   rows.push(...page);
+   if(page.length<500)return rows;
+  }
+  throw Error('تجاوزت سجلات المساحة حد التصدير الآمن. لم ننزّل نسخة ناقصة.');
+ };
+ const [members,profiles,tasks,notices,snapshots,events,hearts,heartPreferences]=await Promise.all(
+  ['md_members','md_profiles','md_tasks','md_notices','md_snapshots','md_events','md_hearts','md_heart_preferences'].map(readAll));
  const docs=await familyRequest('/rest/v1/md_documents?select=*&limit=1');
  const payload={
   madarSharedBackupVersion:1,exportedAt:new Date().toISOString(),familyId:F.familyId,
-  members:clone(F.members),profiles:clone(F.profiles),tasks:clone(F.tasks),
-  events:clone(F.events),notices:clone(F.notices),snapshots:clone(F.snapshots),
+  members,profiles,tasks,events,notices,snapshots,hearts,heartPreferences,
   myDocument:docs?.[0]||null,myShareSettings:clone(F.meta)
  };
  const sealed=await backupEnvelope(payload);
@@ -1032,7 +1043,7 @@ async function exportSharedSpace(){
  const verified=await backupVerify(sealed);
  if(JSON.stringify(verified.data)!==JSON.stringify(payload))throw Error('تعذر التحقق من نسخة المساحة.');
  download(JSON.stringify(sealed,null,2),'Madar-shared-backup-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json','application/json');
- toast('طُلِب تنزيل نسخة بيانات المساحة. احتفظ بها خارج التطبيق؛ بيانات كل حساب الخاصة تحتاج تصديرًا مستقلًا.');
+ toast('طُلِب تنزيل بيانات المساحة المرئية لهذا الحساب. احتفظ بها خارج التطبيق؛ صدّر بيانات كل حساب الخاصة والمساحة المرئية له على حدة.');
 }
 document.addEventListener('click',event=>{
  if(event.target.closest('[data-act="family-backup-export"]'))exportSharedSpace().catch(error=>toast(error.message,true));
