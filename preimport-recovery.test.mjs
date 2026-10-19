@@ -5,8 +5,8 @@ import {runInNewContext} from 'node:vm';
 const html=readFileSync(new URL('./Madar.html',import.meta.url),'utf8');
 const source=html.match(/^async function preserveBeforeReplace\([^\n]+/m)?.[0];
 assert.ok(source,'Recovery snapshot must be implemented');
-assert.match(html,/await preserveBeforeReplace\(\);D=\{\.\.\.defaults\(\),\.\.\.pendingImport/,'Import must snapshot before replacement');
-assert.match(html,/async\(\)=>\{await preserveBeforeReplace\(\);D=value/,'Vault restore must snapshot before replacement');
+assert.match(html,/await preserveBeforeReplace\(\);\s*D=result\.data/,'Import must snapshot before merging');
+assert.match(html,/await preserveBeforeReplace\(\);D=mergePersonalBackup\(D,value\)\.data/,'Vault restore must snapshot before merging');
 
 const saved=new Map(),storage={
   setItem(key,value){saved.set(key,value)},
@@ -23,7 +23,7 @@ assert.equal(JSON.parse(JSON.parse(saved.get('account-b.beforeImport')).raw).tas
 assert.equal(JSON.parse(JSON.parse(saved.get('account-a.beforeImport')).raw).tasks[0].title,'قبل الاستيراد');
 
 storage.setItem=()=>{throw Error('quota')};
-await assert.rejects(context.snapshot(),/لم تتغير بياناتك/,'Replacement is blocked without a recoverable snapshot');
+await assert.rejects(context.snapshot(),/لم تتغير بياناتك/,'Merge is blocked without a recoverable snapshot');
 assert.match(html,/نسخة قبل الاستبدال/,'The snapshot is visible in the recovery list');
 assert.match(html,/btn\('استرجاع','vault-restore',String\(i\)\)/,'The first recovery row must keep data-id="0"');
 console.log('Pre-import/restore snapshot, account isolation and storage failure regression passed');

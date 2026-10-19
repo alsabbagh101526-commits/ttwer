@@ -20,14 +20,14 @@ await assert.rejects(context.verify(tampered),/تغيّر محتوى الملف/
 await assert.rejects(context.verify({...old,madarBackupIntegrity:{version:1,algorithm:'SHA-256',hash:'wrong'}}),/بصمة سلامة/);
 assert.equal((await context.verify(old)).verified,false,'Older JSON remains importable');
 
-const importSource=html.match(/^async function readImport\([^\n]+/m)?.[0];
+const importSource=html.slice(html.indexOf('function mergePersonalBackup('),html.indexOf('const clone=value=>'));
 assert.ok(importSource);
 const messages=[],modals=[];
-const importer={backupVerify:context.verify,validateData:v=>{if(v.schema!==1)throw Error('schema')},openModal:(...args)=>modals.push(args),toast:(...args)=>messages.push(args),num:String,esc:String,btn:()=>'',D:old,defaults:()=>({schema:1,settings:{}}),preserveBeforeReplace:async()=>{},$:()=>({value:'selected'})};
+const importer={backupVerify:context.verify,validateData:v=>{if(v.schema!==1)throw Error('schema')},openModal:(...args)=>modals.push(args),toast:(...args)=>messages.push(args),num:String,esc:String,btn:()=>'',D:old,defaults:()=>({schema:1,settings:{}}),preserveBeforeReplace:async()=>{},document:{querySelector:()=>({value:'selected'})}};
 runInNewContext('let pendingImport=null;'+importSource+'\nthis.importFile=readImport;this.getPending=()=>pendingImport;',importer);
 const file=data=>({size:JSON.stringify(data).length,name:'backup.json',text:async()=>JSON.stringify(data)});
 await importer.importFile(file(tampered));
-assert.equal(modals.length,0,'Corrupt backup must not present replacement');
+assert.equal(modals.length,0,'Corrupt backup must not present restore');
 assert.equal(importer.getPending(),null);
 assert.match(messages.at(-1)[0],/تغيّر محتوى الملف/);
 await importer.importFile(file(old));

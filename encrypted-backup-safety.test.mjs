@@ -5,7 +5,7 @@ import {runInNewContext} from 'node:vm';
 const html=readFileSync(new URL('./Madar.html',import.meta.url),'utf8');
 assert.equal(html,readFileSync(new URL('./index.html',import.meta.url),'utf8'));
 const local=html.match(/^async function cloudLocal\([^\n]+/m)?.[0];
-const restore=html.match(/^function cloudRestore\([^\n]+/m)?.[0];
+const restore=html.slice(html.indexOf('function cloudRestore('),html.indexOf("document.addEventListener('click'",html.indexOf('function cloudRestore(')));
 assert.ok(local&&restore,'Encrypted backup helpers exist');
 
 let transaction,request,closes=0;
@@ -37,6 +37,7 @@ const restoreContext={D:old,Promise,Error,cloudDownload:async()=>fresh,
  openModal:(title,body,onSubmit)=>modals.push({title,onSubmit}),
  preserveBeforeReplace:async()=>{attempts++;if(!allowSnapshot)throw Error('snapshot failed')},
  cloudLocal:async()=>{extraCopies++},familyUID:()=> 'user',JSON,
+ mergePersonalBackup:(current,incoming)=>({data:{...current,tasks:[...current.tasks,...incoming.tasks]},added:incoming.tasks.length}),
  defaults:()=>({settings:{notifications:false}}),num:String,btn:()=>''};
 runInNewContext(restore+'\nthis.testCloudRestore=cloudRestore;this.current=()=>D;',restoreContext);
 restoreContext.testCloudRestore('backup-id');
@@ -53,6 +54,6 @@ restoreContext.cloudLocal=async()=>{extraCopies++};
 assert.equal(await modals[1].onSubmit(),true);
 assert.equal(attempts,3);
 assert.equal(extraCopies,1);
-assert.equal(restoreContext.current().tasks[0].id,'new');
+assert.deepEqual(restoreContext.current().tasks.map(x=>x.id),['old','new']);
 assert.equal(restoreContext.current().settings.notifications,true);
 console.log('Encrypted transfer commit and pre-restore recovery safety passed');
