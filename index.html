@@ -1785,5 +1785,56 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-act^
 document.addEventListener('change',e=>{const el=e.target,p=madarMessagePrefs();if(el.id==='madarMessageCategory'){madarMessageCategory=el.value;madarMessageLimit=12;$('#madarMessageRows').innerHTML=madarMessageRows()}else if(el.id==='madarMessageFavorites'){madarMessageOnlyFavorites=el.checked;madarMessageLimit=12;$('#madarMessageRows').innerHTML=madarMessageRows()}else if(['madarMessageMorning','madarMessageEvening','madarMessageSuccess'].includes(el.id)){p[{madarMessageMorning:'morning',madarMessageEvening:'evening',madarMessageSuccess:'success'}[el.id]]=el.checked;madarMessageSave(p);render()}});
 document.addEventListener('input',e=>{if(e.target.id==='madarMessageSearch'){madarMessageSearch=e.target.value;madarMessageLimit=12;$('#madarMessageRows').innerHTML=madarMessageRows()}});
 
+
+let madarTaskBoardDate=today();
+function madarTaskBoardEntries(local,shared,partner,partnerName){
+ const rows=[],seen=new Set();
+ const add=(x,source,owner,category,due,actual)=>{
+  if(!x||typeof x.id!=='string'||seen.has(x.id)||!/^\d{4}-\d{2}-\d{2}$/.test(due||''))return;
+  seen.add(x.id);
+  rows.push({id:x.id,title:String(x.title||''),source,owner,category:category||'غير مصنفة',due,day:actual||due,done:!!x.done,unknownCompletionDay:!!x.done&&!actual});
+ };
+ for(const x of local){
+  const stamp=x.doneAt?new Date(x.doneAt):null;
+  add(x,'own','أنا',x.category,x.date,x.done&&stamp&&Number.isFinite(stamp.getTime())?localDate(stamp):'');
+ }
+ for(const x of shared)add(x,'shared','مساحتنا','مشتركة',x.due_date,'');
+ for(const x of partner)add(x,'partner',partnerName+' · مشاركة',x.category,x.date,'');
+ return rows;
+}
+function madarMonthlyTaskInsights(tasks,month,now){
+ const due=tasks.filter(x=>typeof x.date==='string'&&x.date.slice(0,7)===month&&x.date<=now);
+ const actual=x=>{const stamp=x.doneAt?new Date(x.doneAt):null;return stamp&&Number.isFinite(stamp.getTime())?localDate(stamp):''};
+ const done=tasks.filter(x=>x.done&&actual(x).slice(0,7)===month);
+ const onTime=due.filter(x=>x.done&&actual(x)&&actual(x)<=x.date).length;
+ const late=due.filter(x=>x.done&&actual(x)>x.date).length;
+ const open=due.filter(x=>!x.done).length;
+ const byCategory=new Map(),byDay=new Map();
+ for(const x of done){const category=x.category?.trim()||'غير مصنفة',date=actual(x);byCategory.set(category,(byCategory.get(category)||0)+1);byDay.set(date,(byDay.get(date)||0)+1)}
+ return {due:due.length,done:done.length,onTime,late,open,byCategory:[...byCategory].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ar')),best:[...byDay].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))[0]||null};
+}
+function madarTaskBoardPage(){
+ const peer=F.familyId&&familyPartner(),snapshot=peer&&F.snapshots.find(x=>x.user_id===peer)?.payload;
+ const rows=madarTaskBoardEntries(D.tasks,F.familyId?F.tasks:[],snapshot?.scopes?.tasks&&Array.isArray(snapshot.tasks)?snapshot.tasks.filter(x=>!x.private):[],peer?familyName(peer):'الشريك');
+ const selected=madarTaskBoardDate?rows.filter(x=>x.day===madarTaskBoardDate):rows;
+ const groups=new Map();for(const x of selected){const a=groups.get(x.category)||[];a.push(x);groups.set(x.category,a)}
+ const done=selected.filter(x=>x.done).length,dates=new Set(selected.map(x=>x.day));
+ const item=x=>`<article class="row"><div class="body"><b class="${x.done?'completed':''}">${esc(x.title)}</b><div class="pills"><span class="pill ${x.done?'green':x.due<today()?'red':''}">${x.done?'مكتملة':'باقية'}</span><span class="pill">${esc(x.owner)}</span><span class="pill">الموعد ${esc(x.due)}</span>${x.unknownCompletionDay?'<small>تاريخ الإكمال غير متاح؛ تظهر في يوم موعدها.</small>':''}</div></div>${x.source==='own'?btn('فتح','task-edit',x.id):x.source==='shared'?btn('فتح','family-task-edit',x.id):''}</article>`;
+ const sections=[...groups].sort((a,b)=>a[0].localeCompare(b[0],'ar')).map(([category,list])=>{
+  const days=[...new Set(list.map(x=>x.day))].sort().reverse();
+  return `<section class="card"><div class="cardhead"><h2>${esc(category)}</h2><span class="pill">${num(list.filter(x=>x.done).length)} منجزة · ${num(list.filter(x=>!x.done).length)} باقية</span></div>${days.map(date=>`<h3>${esc(date)} · ${num(list.filter(x=>x.day===date&&x.done).length)} منجزة / ${num(list.filter(x=>x.day===date&&!x.done).length)} باقية</h3>${limitedRows(list.filter(x=>x.day===date).sort((a,b)=>Number(a.done)-Number(b.done)||a.title.localeCompare(b.title,'ar')),'taskboard|'+category+'|'+date,item)}`).join('')}</section>`
+ }).join('');
+ return head('جميع مهامنا','حسب التصنيف واليوم، مع حالة كل مهمة.',`<div class="actions">${btn('كل الأيام','taskboard-all')}${btn('اليوم','taskboard-today')}${F.session&&F.familyId?btn('تحديث المشاركة','taskboard-refresh'):''}</div>`)+`<section class="card"><div class="toolbar"><label class="field"><span>يوم محدد</span><input type="date" id="taskboardDate" value="${madarTaskBoardDate||today()}"></label><span class="pill">${madarTaskBoardDate?'يوم '+esc(madarTaskBoardDate):'كل الأيام'}</span></div><div class="stats">${stat('منجزة',num(done),'في القائمة المعروضة','check')}${stat('باقية',num(selected.length-done),'في القائمة المعروضة','tasks')}${stat('أيام فيها مهام',num(dates.size),'حسب الموعد أو تاريخ الإكمال','calendar')}</div><small>مهامك المنجزة تظهر يوم إكمالها الفعلي. المهام المشتركة ومهام الشريك المنشورة تظهر يوم موعدها لأن تاريخ إكمالها غير محفوظ في المشاركة. مهام رؤى الخاصة لا تظهر هنا.</small></section>${sections||'<section class="card"><p class="muted">لا توجد مهام لهذا اليوم. اختر يومًا آخر أو اعرض كل الأيام.</p></section>'}`;
+}
+function madarMonthlyTaskPanel(r){
+ const v=madarMonthlyTaskInsights(D.tasks,r.month,today());
+ return `<section class="card"><h3>تفصيل مهام الشهر</h3><p>أنجزت فعليًا خلال الشهر: <b>${num(v.done)}</b> · مهام حلّ موعدها في الشهر: <b>${num(v.due)}</b>.</p><p>من تلك المهام: ${num(v.onTime)} أُنجزت في موعدها، ${num(v.late)} أُنجزت بعده، ${num(v.open)} ما زالت مفتوحة.</p><p>أكثر يوم إنجازًا: ${v.best?esc(v.best[0])+' ('+num(v.best[1])+')':'لا يوجد تسجيل'}.</p><div class="pills">${v.byCategory.map(([name,count])=>`<span class="pill">${esc(name)}: ${num(count)}</span>`).join(' ')||'<span class="muted">لا توجد تصنيفات لمهام منجزة في هذا الشهر.</span>'}</div><small>هذا التقرير من مهامك أنت فقط. تصنيف الإنجاز بحسب تاريخ الإكمال، وحالة المهام ذات الموعد في الشهر بحسب وضعها الآن. الشهر الجاري جزئي.</small></section>`;
+}
+const madarOldTaskBoardNav=nav;nav=function(){madarOldTaskBoardNav();const spot=$('#nav button[data-page="tasks"]');spot?.insertAdjacentHTML('afterend',`<button data-page="taskboard" class="${currentPage==='taskboard'?'active':''}" ${currentPage==='taskboard'?'aria-current="page"':''}>${icon('tasks')}<span>جميع مهامنا</span></button>`)};
+const madarOldTaskBoardHarvest=harvestPage;harvestPage=function(){return madarOldTaskBoardHarvest().replace('<details class="card"><summary><h2>✅ مهام وعادات</h2></summary>','<details class="card"><summary><h2>✅ مهام وعادات</h2></summary>'+madarMonthlyTaskPanel(harvestReport(harvestMonth)))};
+const madarOldTaskBoardRender=render;render=function(){madarOldTaskBoardRender();if(currentPage==='taskboard')$('#page').innerHTML=madarTaskBoardPage()};
+document.addEventListener('click',e=>{const action=e.target.closest('button[data-act]')?.dataset.act;if(action==='taskboard-all'){madarTaskBoardDate='';render()}else if(action==='taskboard-today'){madarTaskBoardDate=today();render()}else if(action==='taskboard-refresh')familyRefresh(true).then(render).catch(error=>toast(familyError(error),true))});
+document.addEventListener('change',e=>{if(e.target.id==='taskboardDate'&&/^d{4}-d{2}-d{2}$/.test(e.target.value)){madarTaskBoardDate=e.target.value;render()}});
+
 if(location.hash.includes('harvest=')||location.hash.includes('daily=')||location.hash.includes('story='))window.dispatchEvent(new Event('hashchange'));
 </script></body></html>
