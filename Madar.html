@@ -1834,7 +1834,7 @@ const madarOldTaskBoardNav=nav;nav=function(){madarOldTaskBoardNav();const spot=
 const madarOldTaskBoardHarvest=harvestPage;harvestPage=function(){return madarOldTaskBoardHarvest().replace('<details class="card"><summary><h2>✅ مهام وعادات</h2></summary>','<details class="card"><summary><h2>✅ مهام وعادات</h2></summary>'+madarMonthlyTaskPanel(harvestReport(harvestMonth)))};
 const madarOldTaskBoardRender=render;render=function(){madarOldTaskBoardRender();if(currentPage==='taskboard')$('#page').innerHTML=madarTaskBoardPage()};
 document.addEventListener('click',e=>{const action=e.target.closest('button[data-act]')?.dataset.act;if(action==='taskboard-all'){madarTaskBoardDate='';render()}else if(action==='taskboard-today'){madarTaskBoardDate=today();render()}else if(action==='taskboard-refresh')familyRefresh(true).then(()=>{render();if(F.error)toast('تعذر تحديث المشاركة؛ تعرض القائمة آخر بيانات متاحة.',true)}).catch(error=>toast(familyError(error),true))});
-document.addEventListener('change',e=>{if(e.target.id==='taskboardDate'&&/^d{4}-d{2}-d{2}$/.test(e.target.value)){madarTaskBoardDate=e.target.value;render()}});
+document.addEventListener('change',e=>{if(e.target.id==='taskboardDate'&&/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)){madarTaskBoardDate=e.target.value;render()}});
 
 if(location.hash.includes('harvest=')||location.hash.includes('daily=')||location.hash.includes('story='))window.dispatchEvent(new Event('hashchange'));
 </script></body></html>
