@@ -403,10 +403,11 @@ function toggleTimer(){let t=D.timer;if(!t)return;if(t.running){t.elapsed=elapse
 function editSession(id,finish=false,seed=null){
  const old=D.sessions.find(s=>s.id===id),timer=finish?D.timer:null,exercise=timer?D.exercises.find(e=>e.id===timer.exerciseId):seed?.exerciseId?D.exercises.find(e=>e.id===seed.exerciseId):null;
  const type=old?.exerciseType||seed?.exerciseType||exercise?.exerciseType||'reps';
- const s=old||seed||{name:timer?.name||'',date:today(),minutes:timer?round(elapsed(timer)/60000):0,sets:timer?.sets||exercise?.sets||0,reps:exercise?.reps||0,durationSeconds:exercise?.durationSeconds||0,weight:exercise?.weight||0,difficulty:5,note:''};
+ const s=old||seed||{name:timer?.name||'',date:today(),minutes:timer?round(elapsed(timer)/60000):0,sets:timer?timer.sets||0:0,reps:0,durationSeconds:0,weight:0,difficulty:5,note:''};
  if(finish&&timer?.running)toggleTimer();
  openModal(old?'تعديل الجلسة':finish?'ماذا أنجزت في الجلسة؟':'تسجيل جلسة منجزة',
   field('name','اسم الجلسة أو التمرين',s.name,'text',{required:true,full:true})+
+  (finish&&exercise?`<p class="full muted">خطتك لهذا التمرين: ${num(exercise.sets||0)} جولات${exercise.exerciseType==='time'?' · '+num(exercise.durationSeconds||0)+' ثانية لكل جولة':' · '+num(exercise.reps||0)+' تكرارات لكل جولة'}. أدخل ما أنجزته فعلًا في الحقول أدناه.</p>`:'')+
   field('date','التاريخ',s.date,'date',{required:true,max:today()})+
   field('minutes','الدقائق الفعلية للجلسة، شاملة الراحة',s.minutes,'number',{required:true,min:0.01})+
   field('sessionExerciseType','نوع الأداء',type,'select',{options:[['reps','تكرارات'],['time','وقت']]})+
