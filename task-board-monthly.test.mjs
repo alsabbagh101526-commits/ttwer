@@ -4,7 +4,7 @@ import {runInNewContext} from 'node:vm';
 
 const html=readFileSync(new URL('./Madar.html',import.meta.url),'utf8');
 assert.equal(html,readFileSync(new URL('./index.html',import.meta.url),'utf8'));
-const block=html.slice(html.indexOf('let madarTaskBoardDate=today();'),html.indexOf("if(location.hash.includes('harvest=')",html.indexOf('let madarTaskBoardDate=today();')));
+const block=html.slice(html.indexOf('let madarTaskBoardDate=today(),'),html.indexOf("if(location.hash.includes('harvest=')",html.indexOf('let madarTaskBoardDate=today(),')));
 assert.ok(block.includes('function madarTaskBoardEntries('));
 const page={innerHTML:''},nav={insertAdjacentHTML:()=>{}},handlers={};
 const personal=[
@@ -31,6 +31,17 @@ assert.match(page.innerHTML,/مهمة ظاهرة/);
 assert.doesNotMatch(page.innerHTML,/سر الزوجة/,'Partner private task must stay hidden');
 assert.doesNotMatch(page.innerHTML,/موعد قادم/,'Other dates are excluded from the selected day');
 assert.match(page.innerHTML,/تاريخ الإكمال غير متاح/,'Shared completion date is not invented');
+assert.match(page.innerHTML,/أُنجزت 2026-10-21/,'Own task shows its real completion date');
+handlers.click.at(-1)({target:{closest:()=>({dataset:{act:'taskboard-mode'}})}});
+assert.match(page.innerHTML,/حسب الموعد/,'Due-date view is explicit');
+assert.doesNotMatch(page.innerHTML,/تقرير العمل/,'Completed task moves to its due day in due-date view');
+handlers.change.at(-1)({target:{id:'taskboardDate',value:'2026-10-20'}});
+assert.match(page.innerHTML,/تقرير العمل/,'A completed task remains visible on its planned date');
+assert.match(page.innerHTML,/أُنجزت 2026-10-21/,'Due-date view does not invent or lose completion date');
+assert.doesNotMatch(page.innerHTML,/سر الزوجة/,'Private partner data stays hidden in both views');
+handlers.click.at(-1)({target:{closest:()=>({dataset:{act:'taskboard-mode'}})}});
+assert.match(page.innerHTML,/حسب الإنجاز/,'Original activity view remains available');
+assert.doesNotMatch(page.innerHTML,/تقرير العمل/,'Completion-day filter is restored');
 handlers.change.at(-1)({target:{id:'taskboardDate',value:'2026-10-30'}});
 assert.match(page.innerHTML,/موعد قادم/,'Choosing another day updates the list');
 assert.doesNotMatch(page.innerHTML,/مشوار خاص/);
